@@ -1,4 +1,8 @@
+import os
+import io
 import pandas as pd
+from sqlalchemy import create_engine
+from dotenv import load_dotenv
 
 
 # ==========================================
@@ -9,6 +13,7 @@ df = pd.read_csv('data/diabetic_data.csv', na_values=['?'])
 print('Initial data shape:', df.shape)
 # print(df.head())
 # print(df.info())
+
 
 # ==========================================
 # 2. LOAD ID MAPPING TABLES 
@@ -52,6 +57,34 @@ for col in ["race", "medical_specialty"]:
 df = df[df['gender'] != 'Unknown/Invalid']
 
 print("Cleaned data shape:", df.shape)
+
+
+# ==========================================
+# 4. Load cleaned data into MySQL 
+# ==========================================
+load_dotenv()
+
+user = os.getenv("DB_USER")
+password = os.getenv("DB_PASSWORD")
+host = os.getenv("DB_HOST")
+port = os.getenv("DB_PORT")
+database = os.getenv("DB_NAME")
+
+db_connection_url = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+engine = create_engine(db_connection_url)
+
+# Main data
+df.to_sql('inpatient_encounters', engine, if_exists='replace', index=False, chunksize=5000)
+print('Main data loaded to MySQL')
+
+# ID mapping tables
+for block in blocks:
+    table_name = block[0].split(",")[0].replace("_id", "")   
+    m = pd.read_csv(io.StringIO("\n".join(block)), keep_default_na=False)  # keep 'NULL' as literal text
+    m["description"] = m["description"].str.strip()                        # remove spaces
+    m.to_sql(table_name, engine, if_exists="replace", index=False)
+    print("Loaded -", table_name, m.shape)
+
 
 
 
