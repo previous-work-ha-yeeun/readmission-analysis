@@ -1,7 +1,7 @@
 USE readmission;
 
 -- ============================================================
--- Q1: Overall 30-day readmission rate 
+-- Q1: Overall 30-day readmission rate (before cleaning)
 -- ============================================================
 SELECT COUNT(1) AS total_encounters,
        SUM(CASE WHEN readmitted = '<30' THEN 1 ELSE 0 END) AS readmitted_30d,
@@ -9,8 +9,15 @@ SELECT COUNT(1) AS total_encounters,
 FROM inpatient_encounters;
 
 -- ============================================================
+-- Q2: Check how many encounters belong to repeat patients
+-- ============================================================
+SELECT COUNT(*) AS total_encounters,
+       COUNT(DISTINCT patient_nbr) AS unique_patients
+FROM inpatient_encounters;
+
+-- ============================================================
 -- Q2: Readmission rate by discharge disposition
--- Purpose: justify excluding death/hospice discharges
+-- Purpose: verify whether death/hospice discharges behave differently
 --          (codes 11, 13, 14, 19, 20, 21)
 -- ============================================================
 SELECT i.discharge_disposition_id, 
@@ -27,6 +34,7 @@ ORDER BY n DESC;
 -- Q3: Row counts before and after cleaning    
 -- Step 1: keep only the first encounter per patient
 -- Step 2: exclude death/hospice discharges
+-- Purpose: check that cleaning matches the paper (final n = 69,984 in Strack et al.)
 -- ============================================================
 WITH ranked AS (
   SELECT *,
@@ -60,6 +68,7 @@ WHERE rn = 1
 
 -- ============================================================
 -- Q4: Overall 30-day readmission rate after cleaning
+-- Reference: the original paper reports about 9.2% (6,459 / 69,984)
 -- ============================================================
 SELECT COUNT(*) AS total_encounters,
        SUM(readmitted = '<30') AS readmitted_30d,
