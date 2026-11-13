@@ -76,12 +76,12 @@ SELECT COUNT(*) AS total_encounters,
 FROM analysis_base;  
 
 -- ============================================================
--- Q6: Readmission by discharge type (home vs other), following Strack et al. (2014) Table 3
+-- Q6: Readmission by discharge type (home vs other), following the paper's Table 3
 -- Reference: the original paper reports about 7.2% vs 12.8% 
 -- ============================================================
 SELECT CASE WHEN discharge_disposition_id = 1 THEN 'Home' ELSE 'Other' END AS discharge_group,
        COUNT(*) AS n,
-       ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate_pct
+       ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate
 FROM analysis_base
 GROUP BY discharge_group;
 
@@ -93,7 +93,47 @@ SELECT CASE WHEN age IN ('[0-10)','[10-20)','[20-30)') THEN '1 - under 30'
             WHEN age IN ('[30-40)','[40-50)','[50-60)') THEN '2 - 30 to 60'
             ELSE '3 - 60 plus' END AS age_group,
        COUNT(*) AS n,
-       ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate_pct
+       ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate
 FROM analysis_base
 GROUP BY age_group
 ORDER BY age_group;
+
+-- ============================================================
+-- Q8: Readmission by primary diagnosis (ICD-9 groups from the Table 2)
+-- Note: only diabetes codes (250.xx) contain decimals, so BETWEEN is safe.
+--       V/E codes convert to 0 and fall into 'Other', as in the paper.
+-- ============================================================
+WITH d AS (
+  SELECT readmitted, FLOOR(CAST(diag_1 AS DECIMAL(6,2))) AS dx
+  FROM analysis_base
+)
+SELECT CASE WHEN dx = 250 THEN 'Diabetes'
+            WHEN dx BETWEEN 140 AND 239 THEN 'Neoplasms'
+            WHEN dx BETWEEN 390 AND 459 OR dx = 785 THEN 'Circulatory'
+            WHEN dx BETWEEN 460 AND 519 OR dx = 786 THEN 'Respiratory'
+            WHEN dx BETWEEN 520 AND 579 OR dx = 787 THEN 'Digestive'
+			      WHEN dx BETWEEN 580 AND 629 OR dx = 788 THEN 'Genitourinary'
+            WHEN dx BETWEEN 710 AND 739 THEN 'Musculoskeletal'
+            WHEN dx BETWEEN 800 AND 999 THEN 'Injury'
+            ELSE 'Other' 
+		  END AS diag_group,
+      COUNT(*) AS n,
+      ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate
+FROM d
+GROUP BY diag_group
+ORDER BY n DESC;
+
+-- ============================================================
+-- Q9: Readmission by HbA1c testing 
+-- 'Normal' = A1Cresult 'Norm' or '>7' (i.e., below 8%); 
+-- ============================================================
+SELECT CASE WHEN A1Cresult = 'Untested'  THEN '1_No test'
+            WHEN A1Cresult = '>8' AND `change` = 'Ch'  THEN '2_High, med changed'
+            WHEN A1Cresult = '>8' AND `change` = 'No'  THEN '3_High, med not changed'
+            ELSE '4_Normal (Norm or >7)'
+       END AS hba1c_group,
+       COUNT(*) AS n,
+       ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate
+FROM analysis_base
+GROUP BY hba1c_group
+ORDER BY hba1c_group;
