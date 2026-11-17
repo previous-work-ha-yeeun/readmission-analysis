@@ -137,3 +137,39 @@ SELECT CASE WHEN A1Cresult = 'Untested'  THEN '1_No test'
 FROM analysis_base
 GROUP BY hba1c_group
 ORDER BY hba1c_group;
+
+-- ============================================================
+-- Q10: Readmission by gender (paper: Female 9.3%, Male 9.2%
+-- ============================================================
+SELECT gender, COUNT(*) AS n,
+       ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate
+FROM analysis_base
+GROUP BY gender;
+
+-- ============================================================
+-- Q11: Readmission by race 
+-- Asian, Hispanic, Other are combined into 'Other' to match the paper's grouping
+-- ============================================================
+SELECT CASE WHEN race = 'AfricanAmerican' THEN 'African American'
+            WHEN race = 'Caucasian'       THEN 'Caucasian'
+            WHEN race = 'Unknown'         THEN 'Missing'
+            ELSE 'Other' 
+       END AS race_group,
+       COUNT(*) AS n,
+       ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate_pct
+FROM analysis_base
+GROUP BY race_group;
+
+-- ============================================================
+-- Q12: Readmission by admission source 
+-- Assumption: referral = codes 1, 2, 3 (checked against the paper's n=22,800)
+-- ============================================================
+SELECT CASE WHEN admission_source_id = 7 THEN 'Emergency room'
+            WHEN admission_source_id IN (1,2,3) THEN 'Physician/clinic referral'
+            ELSE 'Otherwise' 
+       END AS admission_group,
+       COUNT(*) AS n,
+       ROUND(AVG(readmitted = '<30') * 100, 1) AS readmit_rate_pct
+FROM analysis_base
+GROUP BY admission_group;
+
